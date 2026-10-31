@@ -1,0 +1,767 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ทำปก ปพ.5</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script src="https://unpkg.com/docx@8.5.0/build/index.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="logo.js"></script>
+<style>
+:root{
+  --bg:#f3f4f1; --panel:#ffffff; --ink:#1d2321; --muted:#66706b; --line:#dde1dc;
+  --accent:#1f6f50; --accent-ink:#ffffff; --accent-soft:#e3f1ea; --warn:#b4541a; --field:#fbfcfa;
+  --k:1; --page-font:'TH Sarabun New','THSarabunNew','TH SarabunPSK',Sarabun,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#151917; --panel:#1e2421; --ink:#e8ece9; --muted:#9aa49f; --line:#323a36;
+    --accent:#5cc196; --accent-ink:#0d1a14; --accent-soft:#1f3329; --warn:#f0a06a; --field:#181d1b;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#151917; --panel:#1e2421; --ink:#e8ece9; --muted:#9aa49f; --line:#323a36;
+  --accent:#5cc196; --accent-ink:#0d1a14; --accent-soft:#1f3329; --warn:#f0a06a; --field:#181d1b;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 Sarabun,system-ui,sans-serif}
+button,input,select{font:inherit;color:inherit}
+
+/* ---------- top bar ---------- */
+.bar{position:sticky;top:0;z-index:5;display:flex;flex-wrap:wrap;gap:8px;align-items:center;
+  padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line)}
+.bar h1{font-size:18px;margin:0 auto 0 0;font-weight:700;letter-spacing:.2px}
+.bar h1 small{font-weight:400;color:var(--muted);font-size:13px;margin-left:6px}
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--panel);
+  padding:6px 12px;border-radius:8px;cursor:pointer;white-space:nowrap}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.sm{padding:3px 9px;font-size:13px}
+.btn:disabled{opacity:.5;cursor:wait}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg label{padding:6px 10px;cursor:pointer;font-size:14px}
+.seg input{display:none}
+.seg input:checked+span{color:var(--accent);font-weight:700}
+.menu{position:relative}
+.menu-list{position:absolute;right:0;top:calc(100% + 4px);background:var(--panel);border:1px solid var(--line);
+  border-radius:10px;padding:4px;min-width:190px;box-shadow:0 8px 24px rgba(0,0,0,.12);display:none}
+.menu.open .menu-list{display:block}
+.menu-list button{display:block;width:100%;text-align:left;border:0;background:none;padding:8px 10px;border-radius:6px;cursor:pointer}
+.menu-list button:hover{background:var(--accent-soft)}
+
+/* ---------- layout ---------- */
+.main{--formW:52vw;display:grid;grid-template-columns:var(--formW) 8px 1fr;min-height:calc(100% - 58px)}
+/* โหมดกรอกข้อมูลเต็มหน้า: ซ่อนตัวอย่าง ให้แบบฟอร์มใช้ทั้งจอ */
+.main.full{grid-template-columns:1fr}
+.main.full .split,.main.full .preview{display:none}
+.main.full .form{max-height:none;position:static;padding:18px max(18px, calc((100vw - 1400px) / 2)) 48px}
+.form{background:var(--panel);padding:14px 18px 40px;overflow:auto;max-height:calc(100vh - 58px);position:sticky;top:58px;container-type:inline-size;min-width:0}
+.split{cursor:col-resize;background:var(--line);position:sticky;top:58px;height:calc(100vh - 58px);display:flex;align-items:center;justify-content:center}
+.split::after{content:'';width:2px;height:36px;border-left:1px solid var(--muted);border-right:1px solid var(--muted);opacity:.6}
+.split:hover,.split.drag{background:var(--accent-soft)}
+.sections fieldset:first-child{border-top:0;margin-top:4px}
+@container (min-width:680px){
+  .sections{display:grid;grid-template-columns:1fr 1fr;gap:0 28px;align-items:start}
+  .sections fieldset:nth-child(2){border-top:0;margin-top:4px}
+}
+@container (min-width:1100px){
+  .sections{grid-template-columns:repeat(3,1fr)}
+  .sections fieldset:nth-child(3){border-top:0;margin-top:4px}
+}
+.margins{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.margins .f input{text-align:center}
+.preview{padding:20px 16px 40px;overflow:auto;max-height:calc(100vh - 58px)}
+.zoom{display:flex;align-items:center;gap:8px;justify-content:center;color:var(--muted);font-size:13px;margin-bottom:12px}
+.zoom input{width:140px;accent-color:var(--accent)}
+#previewInner{width:max-content;margin:0 auto}
+
+.covers{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.chip{border:1px solid var(--line);background:var(--field);border-radius:999px;padding:3px 11px;cursor:pointer;font-size:14px}
+.chip.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.cover-actions{display:flex;gap:6px;margin-bottom:6px}
+
+fieldset{border:0;border-top:1px solid var(--line);margin:14px 0 0;padding:12px 0 0}
+legend{font-weight:700;padding:0 6px 0 0;font-size:15px}
+.grid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px 10px}
+.f{display:flex;flex-direction:column;gap:2px;min-width:0}
+.f span{font-size:12.5px;color:var(--muted)}
+.f input,.f select{width:100%;border:1px solid var(--line);background:var(--field);border-radius:7px;padding:5px 8px;min-width:0}
+.f input:focus,.f select:focus{outline:2px solid var(--accent);outline-offset:-1px;border-color:transparent}
+.c1{grid-column:span 1}.c2{grid-column:span 2}.c3{grid-column:span 3}.c4{grid-column:span 4}.c6{grid-column:span 6}
+.nums{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.nums .f input{text-align:center}
+.nums4{grid-template-columns:repeat(4,1fr)}
+.sum{margin-top:8px;font-size:13.5px;color:var(--muted)}
+.sum b{color:var(--ink)}
+.sum .bad{color:var(--warn);font-weight:600}
+.sub{font-size:13px;font-weight:600;margin:10px 0 4px;display:flex;justify-content:space-between}
+.sub em{font-style:normal;font-weight:400;color:var(--muted)}
+.sub em.bad{color:var(--warn);font-weight:600}
+.hint{font-size:12.5px;color:var(--muted);margin:6px 0 0}
+.logo-row{display:flex;gap:10px;align-items:center}
+.logo-row img{width:44px;height:52px;object-fit:contain;background:#fff;border-radius:6px;border:1px solid var(--line)}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:var(--panel);
+  padding:8px 16px;border-radius:8px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:20}
+.toast.show{opacity:1}
+
+/* ---------- the A4 page ---------- */
+.page{width:210mm;height:297mm;background:#fff;color:#000;overflow:hidden;
+  margin:0 auto 20px;box-shadow:0 2px 14px rgba(0,0,0,.14);
+  font-family:var(--page-font);line-height:1.05}
+.sheet{border-collapse:collapse;table-layout:fixed}
+.sheet .ck{display:inline-block;width:.68em;height:.68em;border:1.2px solid #000;border-radius:50%;margin:0 .35em 0 .1em;vertical-align:-.08em}
+.sheet td{padding:0 .8mm;white-space:nowrap;overflow:visible;vertical-align:middle}
+.sheet td.logo{text-align:center;vertical-align:top}
+.sheet td.logo img{width:68pt;height:80pt;object-fit:contain}
+
+#printArea{position:absolute;left:-100000px;top:0}
+
+@media (max-width:860px){
+  .main{grid-template-columns:1fr}
+  .split{display:none}
+  .form,.preview{max-height:none;position:static}
+  .form{border-right:0;border-bottom:1px solid var(--line)}
+}
+@page{size:A4;margin:0}
+@media print{
+  body{background:#fff}
+  body>*:not(#printArea){display:none!important}
+  #printArea{position:static}
+  #printArea .page{margin:0;box-shadow:none;break-after:page}
+  #printArea .page:last-child{break-after:auto}
+}
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <h1>ทำปก ปพ.5 <small>แบบแสดงผลการพัฒนาคุณภาพของผู้เรียน</small></h1>
+  <div class="seg" title="โหมดการแสดงผล">
+    <label><input type="radio" name="mode" value="full"><span>กรอกข้อมูลเต็มหน้า</span></label>
+    <label><input type="radio" name="mode" value="split" checked><span>กรอกข้อมูล + แสดงผล</span></label>
+  </div>
+  <button class="btn" id="btnImport">นำเข้า .xlsx</button>
+  <input type="file" id="fileImport" accept=".xlsx" hidden>
+  <div class="seg" title="ขอบเขตการบันทึก/พิมพ์">
+    <label><input type="radio" name="scope" value="one" checked><span>ปกนี้</span></label>
+    <label><input type="radio" name="scope" value="all"><span id="scopeAll">ทุกปก</span></label>
+  </div>
+  <div class="menu" id="saveMenu">
+    <button class="btn" id="btnSave">บันทึกเป็น ▾</button>
+    <div class="menu-list">
+      <button data-save="xlsx">Excel (.xlsx)</button>
+      <button data-save="docx">Word (.docx)</button>
+      <button data-save="pdf">PDF (.pdf)</button>
+    </div>
+  </div>
+  <button class="btn primary" id="btnPrint">พิมพ์</button>
+</header>
+
+<div class="main">
+  <aside class="form" id="form">
+    <div class="covers" id="covers"></div>
+    <div class="cover-actions">
+      <button class="btn sm" id="btnAdd">+ ปกใหม่</button>
+      <button class="btn sm" id="btnDup">ทำสำเนา</button>
+      <button class="btn sm" id="btnDel">ลบปกนี้</button>
+    </div>
+    <p class="hint">ปกใหม่จะคัดลอกข้อมูลรายวิชาจากปกที่เลือกอยู่ แล้วล้างตัวเลขผลการเรียนให้ · ลากเส้นแบ่งตรงกลางเพื่อปรับความกว้าง</p>
+
+    <div class="sections">
+    <fieldset>
+      <legend>ข้อมูลรายวิชา</legend>
+      <div class="grid">
+        <label class="f c6"><span>กลุ่มสาระการเรียนรู้</span><input data-k="group" list="groups"></label>
+        <label class="f c2"><span>ชั้น ม.</span><input data-k="level" placeholder="1/1"></label>
+        <label class="f c2"><span>ภาคเรียนที่</span><select data-k="term"><option>1</option><option>2</option></select></label>
+        <label class="f c2"><span>ปีการศึกษา</span><input data-k="year" inputmode="numeric"></label>
+        <label class="f c4"><span>รายวิชา</span><input data-k="subject"></label>
+        <label class="f c2"><span>รหัสวิชา</span><input data-k="code"></label>
+        <label class="f c3"><span>เวลาเรียน (ชั่วโมง/สัปดาห์)</span><input data-k="hours" inputmode="decimal"></label>
+        <label class="f c3"><span>จำนวนหน่วยกิต</span><input data-k="credits" inputmode="decimal"></label>
+        <label class="f c6"><span>ครูผู้สอน</span><input data-k="teacher"></label>
+        <label class="f c6"><span>ครูที่ปรึกษา</span><input data-k="advisors" placeholder="1. ... 2. ..."></label>
+      </div>
+      <datalist id="groups">
+        <option>ภาษาไทย</option><option>คณิตศาสตร์</option><option>วิทยาศาสตร์และเทคโนโลยี</option>
+        <option>สังคมศึกษา ศาสนา และวัฒนธรรม</option><option>สุขศึกษาและพลศึกษา</option><option>ศิลปะ</option>
+        <option>การงานอาชีพ</option><option>ภาษาต่างประเทศ</option>
+      </datalist>
+    </fieldset>
+
+    <fieldset>
+      <legend>สรุปผลการเรียน (จำนวนนักเรียน)</legend>
+      <div class="nums" id="gradeInputs"></div>
+      <div class="sum" id="gradeSum"></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>ผลการประเมิน (จำนวนนักเรียน)</legend>
+      <div class="sub">คุณลักษณะอันพึงประสงค์ <em id="sumAttr"></em></div>
+      <div class="nums nums4" id="attrInputs"></div>
+      <div class="sub">การอ่าน คิดวิเคราะห์ และเขียน <em id="sumRtw"></em></div>
+      <div class="nums nums4" id="rtwInputs"></div>
+      <div class="sub">สมรรถนะสำคัญของผู้เรียน <em id="sumComp"></em></div>
+      <div class="nums" id="compInputs"></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>ตั้งค่าโรงเรียน (ใช้กับทุกปก)</legend>
+      <div class="grid">
+        <label class="f c6"><span>ชื่อโรงเรียน</span><input data-s="school"></label>
+        <label class="f c6"><span>สำนักงานเขตพื้นที่</span><input data-s="area"></label>
+        <label class="f c6"><span>ฟอนต์ในไฟล์ Word/Excel</span><input data-s="font"></label>
+        <div class="f c6"><span>โลโก้</span>
+          <div class="logo-row"><img id="logoPreview" alt="">
+            <button class="btn sm" id="btnLogo">เปลี่ยนโลโก้</button>
+            <button class="btn sm" id="btnLogoReset">ใช้โลโก้เดิม</button>
+            <input type="file" id="fileLogo" accept="image/png,image/jpeg" hidden>
+          </div>
+        </div>
+      </div>
+      <p class="hint" id="fontNote"></p>
+    </fieldset>
+
+    <fieldset>
+      <legend>ผู้อำนวยการ (ใช้กับทุกปก)</legend>
+      <div class="grid">
+        <label class="f c6"><span>ชื่อผู้อำนวยการ (เว้นว่าง = เส้นจุดให้เขียนเอง)</span><input data-s="director" placeholder="เช่น นายสมชาย ใจดี"></label>
+        <label class="f c6"><span>ตำแหน่ง (เว้นว่าง = ผู้อำนวยการ + ชื่อโรงเรียน)</span><input data-s="directorTitle" id="directorTitle"></label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>ระยะขอบกระดาษ A4 (มม.)</legend>
+      <div class="margins">
+        <label class="f"><span>บน</span><input data-s="mt" type="number" min="0" max="60" step="0.5"></label>
+        <label class="f"><span>ล่าง</span><input data-s="mb" type="number" min="0" max="60" step="0.5"></label>
+        <label class="f"><span>ซ้าย</span><input data-s="ml" type="number" min="0" max="60" step="0.5"></label>
+        <label class="f"><span>ขวา</span><input data-s="mr" type="number" min="0" max="60" step="0.5"></label>
+      </div>
+      <p class="hint">ค่าเดิมจากไฟล์ต้นฉบับ: บน 15 · ล่าง 9 · ซ้าย 20 · ขวา 10 <button class="btn sm" id="btnMarginReset">คืนค่าเดิม</button><br>ถ้าเนื้อหาสูงเกินพื้นที่ จะลดความสูงแถวให้พอดี 1 หน้าอัตโนมัติ</p>
+      <p class="hint">ข้อมูลทั้งหมดบันทึกไว้ในเบราว์เซอร์เครื่องนี้อัตโนมัติ <button class="btn sm" id="btnReset">ล้างข้อมูลทั้งหมด</button></p>
+    </fieldset>
+    </div>
+  </aside>
+  <div class="split" id="split" title="ลากเพื่อปรับความกว้าง"></div>
+
+  <section class="preview">
+    <div class="zoom">ย่อ/ขยาย <input type="range" id="zoom" min="30" max="130" value="60"><span id="zoomVal">60%</span></div>
+    <div id="previewInner"></div>
+  </section>
+</div>
+
+<div id="printArea"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+const GRADES = ['4','3.5','3','2.5','2','1.5','1','0','ร','มส'];
+const ATTR_LABELS = ['3 = ดีเยี่ยม','2 = ดี','1 = ผ่าน','0 = ไม่ผ่าน'];
+const COMP_LABELS = ['4 = เหนือความคาดหวัง','3 = สามารถ','2 = กำลังพัฒนา','1 = เริ่มต้น','0 = ไม่ผ่าน'];
+const STORE = 'pp5-cover-v1';
+const DEFAULT_SETTINGS = {
+  school:'โรงเรียนสำโรงวิทยาคาร',
+  area:'สำนักงานเขตพื้นที่การศึกษามัธยมศึกษาอุบลราชธานี อำนาจเจริญ',
+  font:'TH Sarabun New', logo:null, director:'', directorTitle:'',
+  mt:15, mb:9, ml:20, mr:10
+};
+const $ = s => document.querySelector(s);
+
+function blankCover(base = {}){
+  return {group:'', level:'', term:'1', year:'', subject:'', code:'', hours:'', credits:'', teacher:'', advisors:'',
+    grades:Object.fromEntries(GRADES.map(g => [g, ''])), attr:['','','',''], rtw:['','','',''], comp:['','','','',''], ...base};
+}
+
+let state = load() || {settings:{...DEFAULT_SETTINGS}, covers:[blankCover({year:'2569'})], cur:0};
+
+function load(){
+  try{
+    const s = JSON.parse(localStorage.getItem(STORE));
+    if(s && Array.isArray(s.covers) && s.covers.length){
+      s.settings = {...DEFAULT_SETTINGS, ...s.settings};
+      s.covers = s.covers.map(c => blankCover(c));
+      s.cur = Math.min(s.cur || 0, s.covers.length - 1);
+      return s;
+    }
+  }catch(e){}
+  return null;
+}
+function save(){ try{ localStorage.setItem(STORE, JSON.stringify(state)); }catch(e){} }
+const cur = () => state.covers[state.cur];
+
+/* ---------- helpers ---------- */
+const num = v => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
+const dash = v => (v === '' || v == null || num(v) === 0) ? '-' : String(v);
+const zero = v => (v === '' || v == null) ? '0' : String(v);
+const col2n = c => c.charCodeAt(0) - 64;
+const n2col = n => String.fromCharCode(64 + n);
+const sum = a => a.reduce((s, v) => s + num(v), 0);
+const logoURL = () => state.settings.logo || window.DEFAULT_LOGO || '';
+const autoTitle = () => 'ผู้อำนวยการ' + state.settings.school.trim();
+const directorTitle = () => state.settings.directorTitle.trim() || autoTitle();
+/* Page margins in mm; the 16 template columns share whatever width is left. */
+function margins(){
+  const S = state.settings, m = (v, d) => { const n = parseFloat(v); return isNaN(n) ? d : Math.min(60, Math.max(0, n)); };
+  const t = m(S.mt, 15), b = m(S.mb, 9), l = m(S.ml, 20), r = m(S.mr, 10);
+  return {t, b, l, r, colmm:(210 - l - r) / 16, availPt:(297 - t - b) * 72 / 25.4};
+}
+const safeName = s => s.replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, ' ').trim();
+
+function totals(c){
+  const total = GRADES.reduce((s, k) => s + num(c.grades[k]), 0);
+  const fail = num(c.grades['0']) + num(c.grades['ร']) + num(c.grades['มส']);
+  return {total, fail, pass: total - fail};
+}
+
+/* ---------- the cover layout: one spec, rendered to HTML / xlsx / docx ----------
+   Cell addresses match the original Excel template, so exported files can be imported back. */
+function layout(c){
+  const S = state.settings, {total, pass, fail} = totals(c);
+  const BOX = {t:1, b:1, l:1, r:1}, UL = {b:'dot'};
+  const C = (col, t, o = {}) => ({c:col2n(col), s:o.to ? col2n(o.to) - col2n(col) + 1 : 1, t:t == null ? '' : String(t), ...o});
+  const R = (r, ht, cells = []) => ({r, ht, cells});
+  const quads = [['I','J'],['K','L'],['M','N'],['O','P']];
+  const quints = [['G','H'], ...quads];
+  const sig = (r, role, sz) => R(r, 22.5, [
+    C('B','อนุมัติ',{to:'C', chk:1}), C('D','ไม่อนุมัติ',{to:'E', chk:1}),
+    C('G','ลงชื่อ',{a:'r'}), C('H','',{to:'I', bd:UL}), C('J', role, {to:'L', sz}),
+    C('M','วันที่',{a:'r'}), C('N','',{to:'P', bd:UL})]);
+  return fitRows([
+    R(1, 28, [C('A','',{to:'P', rs:3, logo:1})]), R(2, 28), R(3, 28),
+    R(4, 25.5, [C('B','แบบแสดงผลการพัฒนาคุณภาพของผู้เรียน (ปพ.5)',{to:'P', a:'c', b:1, sz:18})]),
+    R(5, 21, [C('B', S.school, {to:'P', a:'c', b:1})]),
+    R(6, 21, [C('B', S.area, {to:'P', a:'c'})]),
+    R(7, 9),
+    R(8, 21, [C('E','กลุ่มสาระการเรียนรู้',{to:'H'}), C('I', c.group, {to:'P', bd:UL})]),
+    R(9, 21, [C('B','ชั้นมัธยมศึกษาปีที่',{to:'E'}), C('F', c.level, {to:'H', a:'c', bd:UL}),
+      C('I','ภาคเรียนที่',{to:'K', a:'r'}), C('L', c.term, {a:'c', bd:UL}),
+      C('M','ปีการศึกษา',{to:'N', a:'r'}), C('O', c.year, {to:'P', a:'c', bd:UL})]),
+    R(10, 21, [C('B','รายวิชา',{to:'E'}), C('F', c.subject, {to:'K', bd:UL}),
+      C('L','รหัสวิชา',{to:'M', a:'r'}), C('N', c.code, {to:'P', a:'c', bd:UL})]),
+    R(11, 21, [C('B','เวลาเรียน',{to:'C'}), C('D', c.hours, {to:'E', a:'c', bd:UL}), C('F','ชั่วโมง/สัปดาห์',{to:'H'}),
+      C('I','จำนวนหน่วยกิต',{to:'L', a:'r'}), C('M', c.credits, {a:'c', bd:UL}), C('N','หน่วยกิต',{to:'P'})]),
+    R(12, 6),
+    R(13, 21, [C('B','ครูผู้สอน',{to:'D'}), C('E', c.teacher, {to:'P', bd:UL})]),
+    R(14, 21, [C('B','ครูที่ปรึกษา',{to:'E'}), C('F', c.advisors, {to:'P', bd:UL})]),
+    R(15, 12),
+    R(16, 22.5, [C('B','สรุปผลการเรียน',{to:'P', a:'c', b:1, bd:BOX})]),
+    R(17, 21, [C('B','ผลการเรียน',{to:'F', a:'c', bd:BOX}), ...GRADES.map((k, i) => C(n2col(7 + i), k, {a:'c', bd:BOX}))]),
+    R(18, 21, [C('B','จำนวนนักเรียน',{to:'F', a:'c', bd:BOX}), ...GRADES.map((k, i) => C(n2col(7 + i), dash(c.grades[k]), {a:'c', bd:BOX}))]),
+    R(19, 21, [C('B',`ทั้งหมด  ${total}  คน`,{to:'F', a:'c', bd:BOX}), C('G',`ผ่าน  ${pass}  คน`,{to:'M', a:'c', bd:BOX}),
+      C('N',`ไม่ผ่าน  ${fail || '-'}  คน`,{to:'P', a:'c', bd:BOX})]),
+    R(20, 12),
+    R(21, 21, [C('B','ผลการประเมิน',{to:'H', rs:2, a:'c', b:1, bd:BOX}), C('I','จำนวนนักเรียน',{to:'P', a:'c', bd:BOX})]),
+    R(22, 21, quads.map(([a, b], i) => C(a, ATTR_LABELS[i], {to:b, a:'c', bd:BOX}))),
+    R(23, 21, [C('B','คุณลักษณะอันพึงประสงค์',{to:'H', bd:BOX}), ...quads.map(([a, b], i) => C(a, zero(c.attr[i]), {to:b, a:'c', bd:BOX}))]),
+    R(24, 21, [C('B','การอ่าน คิดวิเคราะห์ และเขียน',{to:'H', bd:BOX}), ...quads.map(([a, b], i) => C(a, zero(c.rtw[i]), {to:b, a:'c', bd:BOX}))]),
+    R(25, 30, [C('B','ผลการประเมิน',{to:'F', a:'c', b:1, bd:BOX}), ...quints.map(([a, b], i) => C(a, COMP_LABELS[i], {to:b, a:'c', bd:BOX, sz:14, w:1}))]),
+    R(26, 21, [C('B','สมรรถนะสำคัญของผู้เรียน',{to:'F', bd:BOX}), ...quints.map(([a, b], i) => C(a, zero(c.comp[i]), {to:b, a:'c', bd:BOX}))]),
+    R(27, 12),
+    R(28, 22.5, [C('B','การอนุมัติผลการเรียน',{to:'P', a:'c', b:1})]),
+    sig(29, 'ครูผู้สอน'), sig(30, 'หัวหน้ากลุ่มสาระฯ'), sig(31, 'หัวหน้างานวัดผลฯ'),
+    R(32, 22.5, [C('B','เรียนเพื่อโปรดพิจารณา',{to:'F'}), C('G','ลงชื่อ',{a:'r'}), C('H','',{to:'I', bd:UL}),
+      C('J','รองผู้อำนวยการกลุ่มบริหารวิชาการ',{to:'P', sz:14})]),
+    R(33, 6),
+    R(34, 22.5, [C('D','อนุมัติ',{to:'E', chk:1}), C('F','ไม่อนุมัติ',{to:'G', chk:1})]),
+    R(35, 22.5, [C('H','ลงชื่อ',{a:'r'}), C('I','',{to:'O', bd:UL})]),
+    R(36, 21, [C('I', S.director.trim() ? `( ${S.director.trim()} )` : '( ' + '.'.repeat(50) + ' )', {to:'O', a:'c'})]),
+    R(37, 21, [C('I', directorTitle(), {to:'O', a:'c', sz:14})]),
+    R(38, 21, [C('H','วันที่',{a:'r'}), C('I','',{to:'O', bd:UL})]),
+  ]);
+}
+const LAST_ROW = 38;
+
+/* Shrink row heights proportionally when the cover is taller than the printable height. */
+function fitRows(rows){
+  const total = rows.reduce((s, r) => s + r.ht, 0), avail = margins().availPt * 0.98;
+  if(total > avail){ const k = avail / total; rows.forEach(r => r.ht = Math.round(r.ht * k * 100) / 100); }
+  return rows;
+}
+
+/* Fill every row out to 16 columns; cells hidden under a rowspan are marked `covered`. */
+function normalize(rows){
+  const occ = new Set();
+  return rows.map(row => {
+    const at = {}; row.cells.forEach(cl => at[cl.c] = cl);
+    const out = [];
+    for(let c = 1; c <= 16;){
+      if(occ.has(row.r + ':' + c)){ out.push({c, s:1, covered:true}); c++; continue; }
+      const cl = at[c] || {c, s:1, t:''};
+      out.push(cl);
+      for(let k = 1; k < (cl.rs || 1); k++) for(let j = 0; j < cl.s; j++) occ.add((row.r + k) + ':' + (c + j));
+      c += cl.s;
+    }
+    return {...row, cells:out};
+  });
+}
+
+/* ---------- HTML preview ---------- */
+const esc = s => String(s).replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
+const cssBorder = v => v === 'dot' ? '1px dotted #000' : '1px solid #000';
+
+function pageHTML(c){
+  const M = margins();
+  let h = `<div class="page" style="padding:${M.t}mm ${M.r}mm ${M.b}mm ${M.l}mm"><table class="sheet" style="width:${M.colmm * 16}mm"><colgroup>`
+    + `<col style="width:${M.colmm}mm">`.repeat(16) + '</colgroup>';
+  for(const row of normalize(layout(c))){
+    h += `<tr style="height:${row.ht}pt">`;
+    for(const cl of row.cells){
+      if(cl.covered) continue;
+      const st = [`font-size:calc(${cl.sz || 16}pt * var(--k))`];
+      if(cl.a) st.push('text-align:' + (cl.a === 'c' ? 'center' : 'right'));
+      if(cl.b) st.push('font-weight:700');
+      if(cl.w) st.push('white-space:normal;line-height:.95');
+      if(cl.bd) for(const [k, side] of [['t','top'],['b','bottom'],['l','left'],['r','right']]) if(cl.bd[k]) st.push(`border-${side}:${cssBorder(cl.bd[k])}`);
+      const span = (cl.s > 1 ? ` colspan="${cl.s}"` : '') + (cl.rs > 1 ? ` rowspan="${cl.rs}"` : '');
+      const inner = cl.logo ? (logoURL() ? `<img src="${logoURL()}" alt="">` : '') : (cl.chk ? '<span class="ck"></span>' : '') + esc(cl.t);
+      h += `<td${span}${cl.logo ? ' class="logo"' : ''} style="${st.join(';')}">${inner}</td>`;
+    }
+    h += '</tr>';
+  }
+  return h + '</table></div>';
+}
+
+/* ---------- form ---------- */
+function buildNumInputs(el, labels, key){
+  el.innerHTML = labels.map((lb, i) =>
+    `<label class="f"><span>${esc(lb)}</span><input data-k="${key}.${key === 'grades' ? GRADES[i] : i}" inputmode="numeric"></label>`).join('');
+}
+buildNumInputs($('#gradeInputs'), GRADES.map(g => 'เกรด ' + g), 'grades');
+buildNumInputs($('#attrInputs'), ATTR_LABELS, 'attr');
+buildNumInputs($('#rtwInputs'), ATTR_LABELS, 'rtw');
+buildNumInputs($('#compInputs'), COMP_LABELS.map(s => s.replace('เหนือความคาดหวัง', 'เหนือฯ')), 'comp');
+
+/* split only at the first dot: grade keys such as "3.5" contain one */
+const splitK = k => { const i = k.indexOf('.'); return i < 0 ? [k] : [k.slice(0, i), k.slice(i + 1)]; };
+function getK(c, k){ const [a, b] = splitK(k); return b == null ? c[a] : c[a][b]; }
+function setK(c, k, v){ const [a, b] = splitK(k); if(b == null) c[a] = v; else c[a][b] = v; }
+
+function fillForm(){
+  const c = cur();
+  document.querySelectorAll('[data-k]').forEach(el => el.value = getK(c, el.dataset.k) ?? '');
+  document.querySelectorAll('[data-s]').forEach(el => el.value = state.settings[el.dataset.s] ?? '');
+  $('#logoPreview').src = logoURL();
+  $('#directorTitle').placeholder = autoTitle();
+}
+
+function renderCovers(){
+  $('#covers').innerHTML = state.covers.map((c, i) =>
+    `<button class="chip${i === state.cur ? ' on' : ''}" data-i="${i}">${esc(c.level ? 'ม.' + c.level : 'ปก ' + (i + 1))}${c.code ? ' · ' + esc(c.code) : ''}</button>`).join('');
+  $('#scopeAll').textContent = `ทุกปก (${state.covers.length})`;
+  $('#btnDel').disabled = state.covers.length < 2;
+}
+
+function renderSums(){
+  const c = cur(), {total, pass, fail} = totals(c);
+  $('#gradeSum').innerHTML = `ทั้งหมด <b>${total}</b> คน · ผ่าน <b>${pass}</b> · ไม่ผ่าน (0, ร, มส) <b>${fail}</b>`;
+  for(const [id, arr] of [['#sumAttr', c.attr], ['#sumRtw', c.rtw], ['#sumComp', c.comp]]){
+    const s = sum(arr), el = $(id), bad = total > 0 && s > 0 && s !== total;
+    el.textContent = s ? `รวม ${s}${bad ? ' (ไม่เท่ากับ ' + total + ')' : ''}` : '';
+    el.className = bad ? 'bad' : '';
+  }
+}
+
+let raf = 0;
+function renderPreview(){
+  cancelAnimationFrame(raf);
+  raf = requestAnimationFrame(() => { $('#previewInner').innerHTML = pageHTML(cur()); });
+}
+function renderAll(){ renderCovers(); fillForm(); renderSums(); renderPreview(); }
+
+$('#form').addEventListener('input', e => {
+  const el = e.target;
+  if(el.dataset.k){ setK(cur(), el.dataset.k, el.value); if(['level','code'].includes(el.dataset.k)) renderCovers(); renderSums(); }
+  else if(el.dataset.s){ state.settings[el.dataset.s] = el.value; if(el.dataset.s === 'school') $('#directorTitle').placeholder = autoTitle(); }
+  else return;
+  save(); renderPreview();
+});
+
+$('#covers').addEventListener('click', e => {
+  const b = e.target.closest('.chip'); if(!b) return;
+  state.cur = +b.dataset.i; save(); renderAll();
+});
+function addCover(copyCounts){
+  const c = structuredClone(cur());
+  const n = copyCounts ? c : blankCover({group:c.group, term:c.term, year:c.year, subject:c.subject, code:c.code,
+    hours:c.hours, credits:c.credits, teacher:c.teacher});
+  state.covers.splice(state.cur + 1, 0, n); state.cur++; save(); renderAll();
+  if(!copyCounts) document.querySelector('[data-k="level"]').focus();
+}
+$('#btnAdd').onclick = () => addCover(false);
+$('#btnDup').onclick = () => addCover(true);
+$('#btnDel').onclick = () => {
+  if(state.covers.length < 2 || !confirm('ลบปกนี้?')) return;
+  state.covers.splice(state.cur, 1); state.cur = Math.max(0, state.cur - 1); save(); renderAll();
+};
+$('#btnReset').onclick = () => {
+  if(!confirm('ล้างข้อมูลทุกปกและการตั้งค่าทั้งหมด?')) return;
+  state = {settings:{...DEFAULT_SETTINGS}, covers:[blankCover({year:'2569'})], cur:0}; save(); renderAll();
+};
+$('#btnLogo').onclick = () => $('#fileLogo').click();
+$('#fileLogo').onchange = e => {
+  const f = e.target.files[0]; if(!f) return;
+  const rd = new FileReader();
+  rd.onload = () => { state.settings.logo = rd.result; save(); renderAll(); };
+  rd.readAsDataURL(f); e.target.value = '';
+};
+$('#btnLogoReset').onclick = () => { state.settings.logo = null; save(); renderAll(); };
+
+const zoom = $('#zoom');
+function applyZoom(){ $('#previewInner').style.zoom = zoom.value / 100; $('#zoomVal').textContent = zoom.value + '%'; try{ localStorage.setItem('pp5-zoom2', zoom.value); }catch(e){} }
+try{ const z = localStorage.getItem('pp5-zoom2'); if(z) zoom.value = z; }catch(e){}
+zoom.oninput = applyZoom; applyZoom();
+
+/* form panel: drag the divider to resize, or hide it entirely */
+const mainEl = $('.main'), split = $('#split');
+const setFormW = px => mainEl.style.setProperty('--formW', Math.max(320, Math.min(px, innerWidth - 260)) + 'px');
+try{ const w = localStorage.getItem('pp5-formw'); if(w) setFormW(+w); }catch(e){}
+split.addEventListener('pointerdown', e => {
+  split.setPointerCapture(e.pointerId); split.classList.add('drag');
+  const move = ev => setFormW(ev.clientX);
+  const up = ev => {
+    split.removeEventListener('pointermove', move); split.removeEventListener('pointerup', up); split.classList.remove('drag');
+    try{ localStorage.setItem('pp5-formw', Math.round(ev.clientX)); }catch(err){}
+  };
+  split.addEventListener('pointermove', move); split.addEventListener('pointerup', up);
+});
+split.addEventListener('dblclick', () => { mainEl.style.removeProperty('--formW'); try{ localStorage.removeItem('pp5-formw'); }catch(e){} });
+function setMode(mode){
+  mainEl.classList.toggle('full', mode === 'full');
+  document.querySelector(`input[name=mode][value="${mode}"]`).checked = true;
+  try{ localStorage.setItem('pp5-mode', mode); }catch(e){}
+}
+document.querySelectorAll('input[name=mode]').forEach(r => r.onchange = () => setMode(r.value));
+try{ setMode(localStorage.getItem('pp5-mode') === 'full' ? 'full' : 'split'); }catch(e){ setMode('split'); }
+$('#btnMarginReset').onclick = () => {
+  Object.assign(state.settings, {mt:15, mb:9, ml:20, mr:10}); save(); renderAll();
+};
+
+let toastT;
+function toast(msg){ const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2600); }
+
+/* Thai "TH Sarabun" renders much smaller than Sarabun at the same size; scale the fallback down. */
+function detectFont(){
+  const cv = document.createElement('canvas').getContext('2d'), probe = 'กขคงabcภาคเรียน';
+  const w = f => { cv.font = `40px ${f}`; return cv.measureText(probe).width; };
+  const base = w('monospace');
+  const found = ['TH Sarabun New', 'TH SarabunPSK'].find(f => w(`"${f}", monospace`) !== base);
+  if(found){
+    $('#fontNote').textContent = `ตัวอย่างบนจอใช้ฟอนต์ ${found} จากเครื่องนี้`;
+  }else{
+    document.documentElement.style.setProperty('--k', '0.72');
+    $('#fontNote').textContent = 'เครื่องนี้ไม่มีฟอนต์ TH Sarabun New ตัวอย่างบนจอจึงใช้ Sarabun แทน (ไฟล์ Word/Excel ยังตั้งเป็นฟอนต์ด้านบน)';
+  }
+}
+
+/* ---------- scope ---------- */
+const scopeCovers = () => document.querySelector('input[name=scope]:checked').value === 'all' ? state.covers : [cur()];
+/* PP5-cover-<ปีการศึกษา>-<ภาคเรียน>-<สุ่ม 6 ตัว> */
+function baseName(list){
+  const c = list[0], rand = Math.random().toString(36).slice(2, 8).padEnd(6, '0');
+  return safeName(`PP5-cover-${c.year.trim() || 'ไม่ระบุปี'}-${c.term || '1'}-${rand}`).replace(/ /g, '');
+}
+function download(blob, name){
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+}
+function dataURLParts(url){
+  const m = /^data:image\/(png|jpe?g|gif);base64,(.*)$/i.exec(url || '');
+  return m ? {ext:m[1].toLowerCase().replace('jpg', 'jpeg'), b64:m[2]} : null;
+}
+
+/* ---------- export: xlsx ---------- */
+async function exportXlsx(list){
+  const font = state.settings.font || 'TH Sarabun New';
+  const wb = new ExcelJS.Workbook();
+  const lp = dataURLParts(logoURL());
+  const imgId = lp ? wb.addImage({base64:lp.b64, extension:lp.ext}) : null;
+  const used = new Set(), M = margins(), inch = mm => +(mm / 25.4).toFixed(3);
+  const colChars = 5.43 * M.colmm / 11.25, colPx = colChars * 7 + 5;
+  list.forEach((c, idx) => {
+    let name = (c.level || String(idx + 1)).replace(/[\\/?*[\]:]/g, '') || String(idx + 1), n = name, k = 2;
+    while(used.has(n)) n = `${name}_${k++}`;
+    used.add(n);
+    const ws = wb.addWorksheet(n.slice(0, 31), {
+      pageSetup:{paperSize:9, orientation:'portrait', fitToPage:true, fitToWidth:1, fitToHeight:1,
+        horizontalCentered:false, printArea:'A1:P' + LAST_ROW,
+        margins:{left:inch(M.l), right:inch(M.r), top:inch(M.t), bottom:inch(M.b), header:0, footer:0}},
+      views:[{showGridLines:false}]
+    });
+    for(let i = 1; i <= 16; i++) ws.getColumn(i).width = +colChars.toFixed(2);
+    for(const row of normalize(layout(c))){
+      ws.getRow(row.r).height = row.ht;
+      for(const cl of row.cells){
+        if(cl.covered) continue;
+        const rs = cl.rs || 1;
+        for(let dr = 0; dr < rs; dr++) for(let dc = 0; dc < cl.s; dc++){
+          const cell = ws.getCell(row.r + dr, cl.c + dc);
+          cell.font = {name:font, size:cl.sz || 16, bold:!!cl.b};
+          cell.alignment = {horizontal:cl.a === 'c' ? 'center' : cl.a === 'r' ? 'right' : 'left', vertical:'middle', wrapText:!!cl.w, shrinkToFit:!!cl.bd && !cl.w};
+          if(cl.bd){
+            const st = v => ({style:v === 'dot' ? 'dotted' : 'thin', color:{argb:'FF000000'}}), b = {};
+            if(cl.bd.t && dr === 0) b.top = st(cl.bd.t);
+            if(cl.bd.b && dr === rs - 1) b.bottom = st(cl.bd.b);
+            if(cl.bd.l && dc === 0) b.left = st(cl.bd.l);
+            if(cl.bd.r && dc === cl.s - 1) b.right = st(cl.bd.r);
+            cell.border = b;
+          }
+        }
+        if(cl.t !== '' && !cl.logo){
+          const v = cl.t, isNum = /^\d+(\.\d+)?$/.test(v) && row.r >= 17;
+          ws.getCell(row.r, cl.c).value = cl.chk
+            ? {richText:[{font:{name:'Segoe UI Symbol', size:11}, text:'◯ '}, {font:{name:font, size:cl.sz || 16}, text:v}]}
+            : isNum ? Number(v) : v;
+        }
+        if(cl.s > 1 || rs > 1) ws.mergeCells(row.r, cl.c, row.r + rs - 1, cl.c + cl.s - 1);
+      }
+    }
+    if(imgId != null) ws.addImage(imgId, {tl:{col:8 - 45 / colPx, row:0.05}, ext:{width:90, height:106}, editAs:'oneCell'});
+  });
+  const buf = await wb.xlsx.writeBuffer();
+  download(new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}), baseName(list) + '.xlsx');
+}
+
+/* ---------- export: docx ---------- */
+async function exportDocx(list){
+  const D = window.docx, font = state.settings.font || 'TH Sarabun New';
+  const lp = dataURLParts(logoURL());
+  const logoBytes = lp ? Uint8Array.from(atob(lp.b64), ch => ch.charCodeAt(0)) : null;
+  const NONE = {style:D.BorderStyle.NONE, size:0, color:'FFFFFF'};
+  const bd = v => v ? {style:v === 'dot' ? D.BorderStyle.DOTTED : D.BorderStyle.SINGLE, size:4, color:'000000'} : NONE;
+  const M = margins(), tw = mm => Math.round(mm * 56.693);
+  const COLW = tw(M.colmm);
+  const sections = list.map(c => {
+    const rows = normalize(layout(c)).map(row => new D.TableRow({
+      height:{value:Math.round(row.ht * 20), rule:D.HeightRule.EXACT}, cantSplit:true,
+      children:row.cells.filter(cl => !cl.covered).map(cl => {
+        const runs = cl.logo
+          ? [logoBytes ? new D.ImageRun({data:logoBytes, transformation:{width:90, height:106}}) : new D.TextRun('')]
+          : [...(cl.chk ? [new D.TextRun({text:'○ ', font:'Segoe UI Symbol', size:26})] : []),
+             new D.TextRun({text:cl.t, font, size:(cl.sz || 16) * 2, bold:!!cl.b})];
+        const b = cl.bd || {};
+        return new D.TableCell({
+          columnSpan:cl.s > 1 ? cl.s : undefined, rowSpan:cl.rs > 1 ? cl.rs : undefined,
+          width:{size:COLW * cl.s, type:D.WidthType.DXA},
+          verticalAlign:cl.logo ? D.VerticalAlign.TOP : D.VerticalAlign.CENTER,
+          margins:{left:45, right:45, top:0, bottom:0},
+          borders:{top:bd(b.t), bottom:bd(b.b), left:bd(b.l), right:bd(b.r)},
+          children:[new D.Paragraph({
+            alignment:cl.logo || cl.a === 'c' ? D.AlignmentType.CENTER : cl.a === 'r' ? D.AlignmentType.RIGHT : D.AlignmentType.LEFT,
+            spacing:{before:0, after:0}, children:runs})]
+        });
+      })
+    }));
+    return {
+      properties:{page:{size:{width:11906, height:16838}, margin:{top:tw(M.t), right:tw(M.r), bottom:tw(M.b), left:tw(M.l), header:0, footer:0}}},
+      children:[
+        new D.Table({rows, width:{size:COLW * 16, type:D.WidthType.DXA}, columnWidths:Array(16).fill(COLW), layout:D.TableLayoutType.FIXED,
+          borders:{top:NONE, bottom:NONE, left:NONE, right:NONE, insideHorizontal:NONE, insideVertical:NONE}}),
+        new D.Paragraph({spacing:{before:0, after:0, line:20, lineRule:D.LineRuleType.EXACT}, children:[new D.TextRun({text:'', size:2})]})
+      ]
+    };
+  });
+  const doc = new D.Document({styles:{default:{document:{run:{font, size:32}}}}, sections});
+  download(await D.Packer.toBlob(doc), baseName(list) + '.docx');
+}
+
+/* ---------- print / pdf ---------- */
+function fillPrintArea(list){ $('#printArea').innerHTML = list.map(pageHTML).join(''); }
+async function waitImages(el){ await Promise.all([...el.querySelectorAll('img')].map(i => i.complete ? 0 : new Promise(r => { i.onload = i.onerror = r; }))); }
+
+async function exportPdf(list){
+  fillPrintArea(list);
+  const area = $('#printArea'); await document.fonts.ready; await waitImages(area);
+  const pdf = new window.jspdf.jsPDF({unit:'mm', format:'a4', orientation:'portrait'});
+  const pages = [...area.querySelectorAll('.page')];
+  for(let i = 0; i < pages.length; i++){
+    const canvas = await html2canvas(pages[i], {scale:2.5, backgroundColor:'#ffffff', useCORS:true, logging:false});
+    if(i) pdf.addPage();
+    pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, 210, 297);
+  }
+  area.innerHTML = '';
+  pdf.save(baseName(list) + '.pdf');
+}
+$('#btnPrint').onclick = async () => {
+  fillPrintArea(scopeCovers());
+  await document.fonts.ready; await waitImages($('#printArea'));
+  window.print();
+};
+window.addEventListener('afterprint', () => { $('#printArea').innerHTML = ''; });
+
+const menu = $('#saveMenu');
+$('#btnSave').onclick = e => { e.stopPropagation(); menu.classList.toggle('open'); };
+document.addEventListener('click', () => menu.classList.remove('open'));
+menu.querySelector('.menu-list').addEventListener('click', async e => {
+  const kind = e.target.dataset.save; if(!kind) return;
+  menu.classList.remove('open');
+  const btn = $('#btnSave'); btn.disabled = true; btn.textContent = 'กำลังสร้างไฟล์…';
+  try{
+    const list = scopeCovers();
+    if(kind === 'xlsx') await exportXlsx(list);
+    else if(kind === 'docx') await exportDocx(list);
+    else await exportPdf(list);
+    toast(`บันทึก .${kind} แล้ว (${list.length} ปก)`);
+  }catch(err){ console.error(err); alert('สร้างไฟล์ไม่สำเร็จ: ' + err.message); }
+  finally{ btn.disabled = false; btn.textContent = 'บันทึกเป็น ▾'; }
+});
+
+/* ---------- import xlsx ---------- */
+function cellVal(cell){
+  let v = cell.value;
+  if(v == null) return '';
+  if(typeof v === 'object'){
+    if(v instanceof Date) return cell.text;
+    if('result' in v) v = v.result;
+    else if(v.richText) v = v.richText.map(r => r.text).join('');
+    else if('text' in v) v = v.text;
+    else v = cell.text;
+  }
+  return v == null ? '' : String(v).trim();
+}
+async function importXlsx(file){
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(await file.arrayBuffer());
+  const found = []; let school = '', area = '';
+  wb.eachSheet(ws => {
+    const v = a => cellVal(ws.getCell(a));
+    if(!/ปพ/.test(v('B4')) && !v('F10') && !v('N10')) return;
+    school = school || v('B5'); area = area || v('B6');
+    const cnt = a => { const s = v(a); return (s === '' || s === '-') ? '' : (s.match(/\d+(\.\d+)?/) || [''])[0]; };
+    found.push(blankCover({
+      group:v('I8'), level:v('F9'), term:v('L9') || '1', year:v('O9'), subject:v('F10'), code:v('N10'),
+      hours:v('D11'), credits:v('M11'), teacher:v('E13'), advisors:v('F14'),
+      grades:Object.fromEntries(GRADES.map((k, i) => [k, cnt(n2col(7 + i) + '18')])),
+      attr:['I','K','M','O'].map(c => cnt(c + '23')),
+      rtw:['I','K','M','O'].map(c => cnt(c + '24')),
+      comp:[v('G26') !== '' ? 'G26' : 'H26', 'I26', 'K26', 'M26', 'O26'].map(cnt)
+    }));
+  });
+  if(!found.length){ alert('ไม่พบข้อมูลปก ปพ.5 ในไฟล์นี้'); return; }
+  const hasData = state.covers.some(c => c.subject || c.level || sum(Object.values(c.grades)));
+  const replace = !hasData || confirm(`พบ ${found.length} ปกในไฟล์\n\nกด OK = แทนที่ข้อมูลเดิมทั้งหมด\nกด Cancel = เพิ่มต่อท้ายปกเดิม`);
+  if(replace){ state.covers = found; state.cur = 0; }
+  else { state.cur = state.covers.length; state.covers.push(...found); }
+  if(school) state.settings.school = school;
+  if(area) state.settings.area = area;
+  save(); renderAll();
+  toast(`นำเข้า ${found.length} ปกแล้ว`);
+}
+$('#btnImport').onclick = () => $('#fileImport').click();
+$('#fileImport').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = ''; if(!f) return;
+  try{ await importXlsx(f); }catch(err){ console.error(err); alert('อ่านไฟล์ไม่สำเร็จ: ' + err.message); }
+};
+
+detectFont();
+renderAll();
+</script>
+</body>
+</html>
